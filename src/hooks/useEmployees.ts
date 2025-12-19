@@ -15,7 +15,7 @@ export interface Employee {
   status: EmployeeStatus
 }
 
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001"
+const API_URL = import.meta.env.VITE_API_URL || ""
 
 export function useEmployees() {
   const [employees, setEmployees] = useState<Employee[]>([])
