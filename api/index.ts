@@ -2,7 +2,8 @@ import type { VercelRequest, VercelResponse } from "@vercel/node"
 import { MongoClient } from "mongodb"
 
 const MONGODB_URI =
-  process.env.MONGODB_URI || "mongodb+srv://ismail:ismail123@cluster0.t63ghmf.mongodb.net/?appName=Cluster0"
+  process.env.MONGODB_URI ||
+  "mongodb+srv://ismail:ismail123@cluster0.t63ghmf.mongodb.net/veda-office?retryWrites=true&w=majority"
 
 let cachedClient: MongoClient | null = null
 let cachedDb: any = null
@@ -12,7 +13,9 @@ async function connectToDatabase() {
     return { client: cachedClient, db: cachedDb }
   }
 
-  const client = new MongoClient(MONGODB_URI)
+  const client = new MongoClient(MONGODB_URI, {
+    serverSelectionTimeoutMS: 5000,
+  })
   await client.connect()
   const db = client.db("veda-office")
 
@@ -23,11 +26,10 @@ async function connectToDatabase() {
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  // Enable CORS
   res.setHeader("Access-Control-Allow-Credentials", "true")
   res.setHeader("Access-Control-Allow-Origin", "*")
-  res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS")
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type")
+  res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS")
+  res.setHeader("Access-Control-Allow-Headers", "X-Requested-With, Content-Type, Accept, Authorization")
 
   if (req.method === "OPTIONS") {
     res.status(200).end()
@@ -59,6 +61,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const { name, designation, department, phone } = req.body
 
       if (!name || !designation || !department || !phone) {
+        console.log("[v0] Missing fields:", { name, designation, department, phone })
         return res.status(400).json({ error: "Missing required fields" })
       }
 
@@ -72,6 +75,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         createdAt: new Date(),
       }
 
+      console.log("[v0] Creating employee:", newEmployee)
       const result = await db.collection("employees").insertOne(newEmployee)
 
       const insertedEmployee = {
@@ -79,12 +83,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         ...newEmployee,
       }
 
+      console.log("[v0] Employee created successfully:", insertedEmployee.id)
       return res.status(200).json(insertedEmployee)
     }
 
     return res.status(405).json({ error: "Method not allowed" })
   } catch (error) {
-    console.error("API Error:", error)
-    return res.status(500).json({ error: "Internal server error" })
+    console.error("[v0] API Error:", error)
+    return res.status(500).json({ error: "Internal server error", details: (error as Error).message })
   }
 }
